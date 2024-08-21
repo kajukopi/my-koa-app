@@ -2,6 +2,7 @@
 require("dotenv").config();
 const app = require("./app.js");
 const http = require("http");
+const path = require("path")
 const { Server } = require('socket.io');
 const { Client } = require('whatsapp-web.js');
 const LocalWebCache = require("whatsapp-web.js/src/webCache/LocalWebCache.js");
@@ -16,17 +17,12 @@ const io = new Server(server);
 
 const client = new Client({
   RemoteWebCache: new RemoteWebCache({
-    remotePath: "http://localhost:3000/.wwebjs_cache/2.3000.1015851946.html",
-    strict: true
-  }),
-  LocalWebCache: new LocalWebCache({
-    path: "./public/.wwebjs_cache/",
+    remotePath: "http://localhost:3000/2.3000.1015851946.html",
     strict: true
   })
 });
 
 io.on('connection', (socket) => {
-  client.getWWebVersion
   console.log('User connected.');
 
   client.on('loading_screen', (percent, message) => {
