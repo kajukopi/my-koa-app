@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO with Koa.js</title>
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+
+  <body>
+    <button type="button" id="init">INIT</button>
+    <ul id="response">
+
+    </ul>
+    <script>
+      const socket = io();
+      const response = document.querySelector("#response")
+      document.querySelector("#init").addEventListener('click', (e) => {
+        e.preventDefault()
+        socket.emit('init');
+      })
+
+      socket.on('init', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data}<li/>
+        `)
+      });
+      socket.on('loading_screen', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('qr', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('authenticated', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('auth_failure', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('ready', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('pageerror', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('error', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+      socket.on('message_create', (data) => {
+        console.log(data);
+        response.insertAdjacentHTML("beforeend", `
+        <li>${data.message}<li/>
+        `)
+      });
+
+    </script>
+  </body>
+
+</html>
