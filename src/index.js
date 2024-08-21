@@ -4,10 +4,10 @@ const app = require("./app.js");
 const http = require("http");
 const path = require("path")
 const { Server } = require('socket.io');
-const { Client } = require('whatsapp-web.js');
-const LocalWebCache = require("whatsapp-web.js/src/webCache/LocalWebCache.js");
+const { Client, RemoteAuth } = require('whatsapp-web.js');
+const LocalWebCache = require("whatsapp-web.js");
+console.log(LocalWebCache);
 const RemoteWebCache = require("whatsapp-web.js/src/webCache/RemoteWebCache.js");
-
 const port = normalizePort(process.env.PORT || "3000");
 const server = http.createServer(app.callback());
 
@@ -15,73 +15,92 @@ let pairingCodeRequested = false;
 
 const io = new Server(server);
 
-const client = new Client({
-  RemoteWebCache: new RemoteWebCache({
-    remotePath: "http://localhost:3000/2.3000.1015851946.html",
-    strict: true
-  })
-});
+// Require database
+const { MongoStore } = require('wwebjs-mongo');
+const mongoose = require('mongoose');
 
-io.on('connection', (socket) => {
-  console.log('User connected.');
-
-  client.on('loading_screen', (percent, message) => {
-    socket.emit('loading_screen', { message: `LOADING ${percent} ${message}` });
+// Load the session data
+mongoose.connect(process.env.DATABASE_URL).then(() => {
+  const store = new MongoStore({ mongoose: mongoose });
+  const client = new Client({
+    puppeteer: { headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox'], },
+    webVersionCache: { type: 'remote', remotePath: "http://localhost:3000/{version}", strict: true },
+    bypassCSP: true,
+    authStrategy: new RemoteAuth({
+      store: store,
+      clientId: "karimroy",
+      backupSyncIntervalMs: 300000
+    })
   });
 
-  client.on('qr', async (qr) => {
-    const pairingCodeEnabled = true;
-    if (pairingCodeEnabled && !pairingCodeRequested) {
-      const pairingCode = await client.requestPairingCode('6285183020580'); // enter the target phone number
-      socket.emit('qr', { message: `Pairing code enabled, code:  ${pairingCode}` });
-      pairingCodeRequested = true;
-    }
-  });
+  console.log(client);
 
-  client.on('authenticated', () => {
-    socket.emit('authenticated', { message: `AUTHENTICATED` });
-  });
+  io.on('connection', (socket) => {
+    console.log('User connected.');
 
-  client.on('auth_failure', msg => {
-    socket.emit('auth_failure', { message: `AUTHENTICATION FAILURE ${msg}` });
-  });
-
-  client.on('ready', async () => {
-    const debugWWebVersion = await client.getWWebVersion();
-    socket.emit('ready', { message: `WWebVersion = ${debugWWebVersion}` });
-    client.pupPage.on('pageerror', function (err) {
-      socket.emit('pageerror', { message: `Page error = ${err.toString()}` });
+    client.on('loading_screen', (percent, message) => {
+      socket.emit('loading_screen', { message: `LOADING ${percent} ${message}` });
     });
-    client.pupPage.on('error', function (err) {
-      socket.emit('error', { message: `Page error = ${err.toString()}` });
-    });
-  });
 
-  client.on('message_create', message => {
-    if (message.fromMe === false && message.isStatus === false && message.isForwarded === false) {
-      client.sendMessage(message.from, 'Ok!');
-      socket.emit('message_create', {
-        from: message.from,
-        to: message.to,
-        isStatus: message.isStatus,
-        timestamp: message.timestamp
+    client.on('qr', async (qr) => {
+      const pairingCodeEnabled = true;
+      if (pairingCodeEnabled && !pairingCodeRequested) {
+        const pairingCode = await client.requestPairingCode('6285183020580'); // enter the target phone number
+        socket.emit('qr', { message: `Pairing code enabled, code:  ${pairingCode}` });
+        pairingCodeRequested = true;
+      }
+    });
+
+    client.on('authenticated', () => {
+      socket.emit('authenticated', { message: `AUTHENTICATED` });
+    });
+
+    client.on('auth_failure', msg => {
+      socket.emit('auth_failure', { message: `AUTHENTICATION FAILURE ${msg}` });
+    });
+
+    client.on('ready', async () => {
+      const debugWWebVersion = await client.getWWebVersion();
+      socket.emit('ready', { message: `WWebVersion = ${debugWWebVersion}` });
+      client.pupPage.on('pageerror', function (err) {
+        socket.emit('pageerror', { message: `Page error = ${err.toString()}` });
       });
-    }
-  });
-  client.on('remote_session_saved', () => {
-    socket.emit('remote_session_saved', { message: "remote session saved" });
-    // Do Stuff...
-  });
+      client.pupPage.on('error', function (err) {
+        socket.emit('error', { message: `Page error = ${err.toString()}` });
+      });
+    });
 
-  socket.on('init', () => {
-    client.initialize();
-    socket.emit('init', "Initializing");
-  });
+    client.on('message_create', message => {
+      if (message.fromMe === false && message.isStatus === false && message.isForwarded === false) {
+        client.sendMessage(message.from, 'Ok!');
+        socket.emit('message_create', {
+          from: message.from,
+          to: message.to,
+          isStatus: message.isStatus,
+          timestamp: message.timestamp
+        });
+      }
+    });
+    client.on('remote_session_saved', () => {
+      socket.emit('remote_session_saved', { message: "remote session saved" });
+      // Do Stuff...
+    });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected');
+    socket.on('init', () => {
+      client.initialize();
+      socket.emit('init', "Initializing");
+    });
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected');
+    });
   });
 });
+
+
+
+
+
 
 // =============================================listen server=========================================
 server.listen(port, "0.0.0.0");
