@@ -72,7 +72,13 @@
       socket.on('message_create', (data) => {
         console.log(data);
         response.insertAdjacentHTML("beforeend", `
-        <li>${data.message}<li/>
+        <li>
+          <pre>
+            <code>
+              ${JSON.stringify(data)}
+            </code>
+          </pre>
+        <li/>
         `)
       });
 

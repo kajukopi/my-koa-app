@@ -4,21 +4,29 @@ const app = require("./app.js");
 const http = require("http");
 const { Server } = require('socket.io');
 const { Client } = require('whatsapp-web.js');
-
-const client = new Client({
-  puppeteer: {
-    headless: false,
-  }
-});
+const LocalWebCache = require("whatsapp-web.js/src/webCache/LocalWebCache.js");
+const RemoteWebCache = require("whatsapp-web.js/src/webCache/RemoteWebCache.js");
 
 const port = normalizePort(process.env.PORT || "3000");
 const server = http.createServer(app.callback());
 
-const io = new Server(server);
-
 let pairingCodeRequested = false;
 
+const io = new Server(server);
+
+const client = new Client({
+  RemoteWebCache: new RemoteWebCache({
+    remotePath: "http://localhost:3000/.wwebjs_cache/2.3000.1015851946.html",
+    strict: true
+  }),
+  LocalWebCache: new LocalWebCache({
+    path: "./public/.wwebjs_cache/",
+    strict: true
+  })
+});
+
 io.on('connection', (socket) => {
+  client.getWWebVersion
   console.log('User connected.');
 
   client.on('loading_screen', (percent, message) => {
@@ -54,13 +62,20 @@ io.on('connection', (socket) => {
   });
 
   client.on('message_create', message => {
-    socket.emit('message_create', { message });
-    if (message.body === '!ping') {
-      // send back "pong" to the chat the message was sent in
-      client.sendMessage(message.from, 'pong');
+    if (message.fromMe === false && message.isStatus === false && message.isForwarded === false) {
+      client.sendMessage(message.from, 'Ok!');
+      socket.emit('message_create', {
+        from: message.from,
+        to: message.to,
+        isStatus: message.isStatus,
+        timestamp: message.timestamp
+      });
     }
   });
-
+  client.on('remote_session_saved', () => {
+    socket.emit('remote_session_saved', { message: "remote session saved" });
+    // Do Stuff...
+  });
 
   socket.on('init', () => {
     client.initialize();
@@ -72,11 +87,11 @@ io.on('connection', (socket) => {
   });
 });
 
-
 // =============================================listen server=========================================
 server.listen(port, "0.0.0.0");
 server.on("error", onError);
 server.on("listening", onListening);
+// =============================================listen server=========================================
 
 function normalizePort(val) {
   const port = parseInt(val, 10);
